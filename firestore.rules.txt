@@ -1,0 +1,127 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSergioAuth() {
+      return signedIn() && request.auth.token.email == 'sergio.quiroga@ect.local';
+    }
+
+    function hasProfile() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return hasProfile() && userDoc().data.active == true && userDoc().data.role == 'admin';
+    }
+
+    function isStaff() {
+      return hasProfile() && userDoc().data.is_staff == true && userDoc().data.active == true;
+    }
+
+    function myStaffId() {
+      return userDoc().data.staff_id;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      // Bootstrap del administrador principal Sergio.
+      allow create: if signedIn() && request.auth.uid == uid &&
+        isSergioAuth() &&
+        request.resource.data.role == 'admin' &&
+        request.resource.data.is_staff == true &&
+        request.resource.data.staff_id == 'sergio-quiroga' &&
+        request.resource.data.email == request.auth.token.email;
+
+      // Alta de Staff mediante código de invitación de un solo uso.
+      // Si el administrador ya le dio rol admin antes del registro, conserva ese rol.
+      allow create: if signedIn() && request.auth.uid == uid &&
+        request.resource.data.role in ['staff','admin'] &&
+        request.resource.data.is_staff == true &&
+        request.resource.data.active == true &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.staff_id is string &&
+        request.resource.data.invite_code is string &&
+        getAfter(/databases/$(database)/documents/invites/$(request.resource.data.invite_code)).data.claimed == true &&
+        getAfter(/databases/$(database)/documents/invites/$(request.resource.data.invite_code)).data.claimed_uid == uid &&
+        getAfter(/databases/$(database)/documents/invites/$(request.resource.data.invite_code)).data.staff_id == request.resource.data.staff_id &&
+        getAfter(/databases/$(database)/documents/staff/$(request.resource.data.staff_id)).data.uid == uid &&
+        getAfter(/databases/$(database)/documents/staff/$(request.resource.data.staff_id)).data.role == request.resource.data.role;
+
+      // Un admin puede administrar roles. Sergio no puede perder su rol admin.
+      allow update: if (isAdmin() &&
+          (resource.data.staff_id != 'sergio-quiroga' || request.resource.data.role == 'admin')) ||
+        (signedIn() && request.auth.uid == uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email','updated_at']) &&
+         request.resource.data.email == request.auth.token.email);
+
+      allow delete: if isAdmin() && resource.data.staff_id != 'sergio-quiroga';
+    }
+
+    match /staff/{staffId} {
+      // Durante la activación se consulta la ficha exacta asociada al código.
+      allow get: if signedIn();
+      allow list: if isStaff() || isSergioAuth();
+      allow create: if isAdmin() || isSergioAuth();
+
+      allow update: if
+        (isAdmin() && (staffId != 'sergio-quiroga' || request.resource.data.role == 'admin')) ||
+        isSergioAuth() ||
+        (signedIn() && (!resource.data.keys().hasAny(['uid']) || resource.data.uid == null) &&
+         request.resource.data.uid == request.auth.uid &&
+         request.resource.data.email == request.auth.token.email &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid','email','claimed_at','updated_at']) &&
+         getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.staff_id == staffId);
+
+      allow delete: if isAdmin() && staffId != 'sergio-quiroga';
+    }
+
+    match /invites/{inviteId} {
+      // El Staff solo consulta el código exacto recibido; no puede listar códigos.
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (signedIn() && resource.data.claimed == false &&
+         request.resource.data.claimed == true &&
+         request.resource.data.claimed_uid == request.auth.uid &&
+         request.resource.data.claimed_email == request.auth.token.email &&
+         request.resource.data.staff_id == resource.data.staff_id &&
+         request.resource.data.staff_name == resource.data.staff_name &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed','claimed_uid','claimed_email','claimed_at']) &&
+         getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.invite_code == inviteId);
+    }
+
+    match /courses/{courseId} {
+      allow read: if isStaff();
+      allow create: if isAdmin() || isSergioAuth();
+      allow delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isStaff() && resource.data.assigned_staff_id == myStaffId() &&
+         request.resource.data.assigned_staff_id == resource.data.assigned_staff_id &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+           'coverage_confirmed','coverage_confirmed_by','coverage_confirmed_at',
+           'check_start','check_end','opening_by','closing_by','check_start_at','check_end_at','updated_at'
+         ]));
+    }
+
+    match /push_tokens/{tokenId} {
+      allow create, update: if isStaff() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.staff_id == myStaffId();
+      allow read: if isAdmin() || (isStaff() && resource.data.uid == request.auth.uid);
+      allow delete: if isAdmin() || (isStaff() && resource.data.uid == request.auth.uid);
+    }
+
+    match /profiles/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

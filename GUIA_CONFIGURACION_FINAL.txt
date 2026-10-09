@@ -1,0 +1,147 @@
+COBERTURA ECT 2026 - CONFIGURACIÓN FINAL
+========================================
+
+Esta versión usa:
+- GitHub Pages: alojamiento de la app.
+- Firebase Authentication: cuentas y contraseñas.
+- Cloud Firestore: Staff, administradores, cursos y estados.
+- Firebase Cloud Messaging: notificaciones push.
+- Cloud Functions: avisos automáticos con la app cerrada.
+
+
+1. CONFIGURACIÓN FIREBASE
+-------------------------
+config.js ya contiene la configuración del proyecto Firebase cobertura-ect.
+Para push con la app cerrada falta completar la VAPID key si todavía no lo hiciste.
+
+
+2. FIREBASE AUTHENTICATION
+--------------------------
+Debe estar habilitado Email/Password.
+
+Sergio sigue siendo el administrador principal:
+sergio.quiroga@ect.local
+
+Los demás integrantes NO necesitan crearse manualmente en Firebase.
+Crean su cuenta desde la app con un código de invitación.
+
+
+3. PUBLICAR LAS REGLAS NUEVAS
+-----------------------------
+MUY IMPORTANTE: esta versión agrega administración de roles.
+
+1. Abrí firestore.rules.txt.
+2. Copiá todo.
+3. Firebase Console > Firestore Database > Reglas.
+4. Reemplazá las reglas actuales.
+5. Publicá.
+
+Las reglas permiten:
+- Sergio permanece como administrador principal + Staff.
+- Un administrador puede convertir a otro Staff en administrador.
+- Un administrador puede quitar ese privilegio después.
+- Sergio no puede perder su rol principal desde la app.
+- El Staff no administrador no puede administrar integrantes ni códigos.
+- El Staff asignado puede confirmar y marcar inicio/fin de sus cursos.
+
+
+4. PRIMER INGRESO Y TUTORIAL CON POLITO
+---------------------------------------
+La pantalla inicial ahora es más simple:
+- logo;
+- Cobertura ECT;
+- panel de inicio de sesión;
+- texto Desarrollado por Sergio Quiroga.
+
+Polito muestra un tutorial de primera vez:
+1. Pedir el código a un administrador.
+2. Elegir el correo que quiera usar.
+3. Elegir una contraseña propia.
+4. Desde la siguiente vez, entrar solo con correo y contraseña.
+
+El tutorial puede omitirse.
+
+
+5. DAR ACCESO A UN STAFF
+------------------------
+Como administrador:
+1. Abrí Staff.
+2. Tocá Crear acceso.
+3. Copiá el código generado.
+4. Mandáselo a la persona.
+
+La persona entra a la app, toca Primera vez y sigue a Polito.
+El código se usa una sola vez.
+
+
+6. ADMINISTRADORES
+------------------
+Solo los administradores ven la pestaña Staff.
+
+Desde esa pantalla, un administrador puede:
+- generar códigos;
+- hacer administrador a otro integrante;
+- quitarle el privilegio después.
+
+Sergio Quiroga queda como Administrador principal + Staff.
+
+Si promovés a una persona que todavía no creó su cuenta, cuando use su código se registrará ya como administrador.
+
+
+7. ASIGNACIÓN DE CURSOS
+-----------------------
+En cada curso un administrador tiene:
+- Asignarme: toma el curso para sí mismo;
+- Asignar: elige cualquier integrante del Staff.
+
+Cuando tocás Asignarme, el curso aparece en Mis coberturas.
+
+El Staff asignado puede:
+- Confirmar que voy a cubrir;
+- Marcar inicio;
+- Marcar fin.
+
+
+8. TUTORIAL DENTRO DE LA APP
+----------------------------
+Polito aparece automáticamente la primera vez que cada usuario entra en un dispositivo.
+
+Explica:
+- Agenda;
+- Mis coberturas;
+- cómo asignarse/asignar (si es administrador);
+- confirmar cobertura;
+- marcar inicio y fin;
+- activar notificaciones.
+
+Cada paso tiene Omitir.
+También se puede volver a abrir desde Cuenta > Ver tutorial con Polito o tocando a Polito en el panel principal.
+
+
+9. GITHUB PAGES
+---------------
+Todos los archivos del frontend están en la raíz.
+
+GitHub > Settings > Pages
+Source: Deploy from a branch
+Branch: main
+Folder: / (root)
+
+Después de actualizar archivos, Firebase conserva los datos porque están en Firestore.
+
+
+10. NOTIFICACIONES
+------------------
+Seguí GUIA_NOTIFICACIONES_PUSH.txt.
+
+Resumen:
+- recordatorio al Staff asignado 10 minutos antes;
+- si no hay Staff asignado, aviso general;
+- si el curso comienza y no se marcó inicio, aviso al resto del Staff;
+- cada persona debe activar notificaciones en su dispositivo.
+
+
+DESARROLLADO POR
+----------------
+Sergio Quiroga
+Cobertura ECT 2026

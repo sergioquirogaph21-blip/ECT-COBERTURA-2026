@@ -1,0 +1,9 @@
+{
+  "name": "Cobertura ECT 2026",
+  "short_name": "ECT 2026",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#08131d",
+  "theme_color": "#08131d",
+  "icons": [{"src":"./logo.png","sizes":"any","type":"image/png"}]
+}

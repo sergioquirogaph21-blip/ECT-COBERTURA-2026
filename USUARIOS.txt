@@ -1,0 +1,39 @@
+COBERTURA ECT 2026 - STAFF
+==========================
+
+ADMINISTRADOR PRINCIPAL + STAFF
+Sergio Quiroga
+Correo actual: sergio.quiroga@ect.local
+Contraseña actual: ECT2026Admin!
+
+STAFF
+- Laura Ruiz Diaz
+- Jhonatan Ferri
+- Araceli Chavez
+- Marcos Ibarra
+- Nicole Fariña
+- Nara Ruiz
+- Luz Rodriguez
+- Carlos Gonzalez
+- Deisy Villalba
+- Matias Barrios
+
+IMPORTANTE
+----------
+Ya NO hace falta crear manualmente a estos 10 integrantes en Firebase Authentication.
+
+Un administrador entra a la pestaña Staff y genera un código de acceso para cada persona.
+
+Cada integrante toca:
+"Primera vez · Polito te guía"
+
+y completa:
+- Código recibido de un administrador
+- El correo que quiera utilizar
+- La contraseña que quiera utilizar
+
+Firebase Authentication guarda la contraseña. La contraseña nunca se guarda en Firestore.
+Cada código de acceso funciona una sola vez.
+
+Los administradores pueden dar o quitar el privilegio de Administrador a otros integrantes del Staff.
+Sergio Quiroga permanece como Administrador principal + Staff.
