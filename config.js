@@ -8,5 +8,5 @@ globalThis.ECT_FIREBASE_CONFIG = {
   messagingSenderId: "696813064363",
   appId: "1:696813064363:web:d8bfd336ed78b89c6f27ee",
   measurementId: "G-0KG8Q4S924",
-  vapidKey: "PEGAR_VAPID_KEY_AQUI"
+  vapidKey: "BJGYjmpqXHxJNFBliDutGo0z-dxro-1iwAIC4QOm4gVxk_a7gLxy2vbKZ5IOPmR9BnV2kD65WKv8vsL6l7zp8V4"
 };
