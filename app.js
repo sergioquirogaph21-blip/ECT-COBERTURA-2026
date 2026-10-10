@@ -180,7 +180,30 @@ function accountView(){
     <button class="btn secondary" data-app-tutorial>Ver tutorial con Polito</button>
     <button class="btn danger" data-logout>Cerrar sesión</button><div class="author">Cobertura ECT 2026 · Desarrollado por Sergio Quiroga</div></div>`;
 }
+function captureSectionView(){
+  return `<section class="capture-page">
+    <div class="capture-page-head">
+      <div><span class="kicker">CAPTURA ECT</span><h2>Foto, video o galería</h2><p>Capturá el material y envialo directamente a Drive. En celular, el video usa la cámara nativa para evitar recorte o zoom del navegador.</p></div>
+    </div>
+    ${appsScriptConfigured()?'':`<div class="setup-warning compact-warning"><b>Falta conectar Google Drive.</b><span>Pegá la URL /exec de Google Apps Script en <code>config.js</code>.</span></div>`}
+    <div class="capture-panel card">
+      <div class="capture-modes">
+        <button class="${captureMode==='photo'?'active':''}" data-media-mode="photo">📷 Foto</button>
+        <button class="${captureMode==='video'?'active':''}" data-media-mode="video">🎥 Video</button>
+        <button class="${captureMode==='gallery'?'active':''}" data-media-mode="gallery">🖼️ Galería</button>
+      </div>
+      <label class="capture-course-label">Curso relacionado <span class="muted-label">(opcional)</span></label>
+      <select id="captureCourse">${captureCourseOptions()}</select>
+      <div id="captureStage" class="capture-stage"></div>
+      <div id="captureFiles" class="capture-files"></div>
+      <div class="capture-upload-wrap hidden" id="captureUploadWrap"><div class="capture-progress"><i id="captureProgressBar"></i></div><small id="captureProgressText">Preparando…</small></div>
+      <div class="capture-footer"><button class="btn" id="sendCaptureBtn" data-send-capture disabled>Enviar a Drive</button></div>
+    </div>
+  </section>`;
+}
+
 function content(){
+  if(state.tab==='capture') return captureSectionView();
   if(state.tab==='team' && !isAdmin()) state.tab='agenda';
   if(state.tab==='team') return teamView();
   if(state.tab==='account') return accountView();
@@ -199,18 +222,19 @@ function mainView(){
   return `<div class="app">
     <header class="top"><img src="./logo.png" alt="ECT"><div class="grow"><h1>Cobertura ECT</h1><p>${E(state.profile.name)} · ${E(roleLabel())}</p></div><button class="avatar avatar-button" data-app-tutorial title="Ver tutorial">${E(initials(state.profile.name))}</button></header>
     ${('Notification' in window)&&Notification.permission==='default'?'<button class="notify-banner" data-enable-notifications>🔔 Activar avisos de cobertura</button>':''}
+    ${state.tab==='capture' ? content() : `
     <section class="card hero"><div class="grow"><span class="kicker">ECT 2026</span><h2>${isAdmin()?'Agenda de cobertura':'Tus coberturas'}</h2><p>${E(friendly(state.date))}</p></div><button class="polito-hero-button" data-app-tutorial title="Polito te guía"><img class="polito-transparent" src="./polito.png" alt="Polito"></button></section>
     <div class="stats"><div class="card stat"><b>${allDay.length}</b><span>Cursos</span></div><div class="card stat"><b>${isAdmin()?done:myToday}</b><span>${isAdmin()?'Completados':'Mis cursos'}</span></div><div class="card stat"><b>${unassigned}</b><span>Sin asignar</span></div></div>
     <div class="day-strip">${eventDates().map(d=>{const l=dayLabel(d);return `<button class="day ${state.date===d?'active':''}" data-date="${d}"><span>${l.w}</span><b>${l.n}</b></button>`}).join('')}</div>
     <div class="tabs ${isAdmin()?'with-admin':'staff-only'}"><button class="${state.tab==='agenda'?'active':''}" data-tab="agenda">Agenda</button><button class="${state.tab==='mine'?'active':''}" data-tab="mine">Mis coberturas</button>${teamTab}<button class="${state.tab==='account'?'active':''}" data-tab="account">Cuenta</button></div>
-    ${content()}
+    ${content()}`}
   </div>
   <nav class="nav capture-nav">
     <div class="nav-side nav-left">
       <button class="${state.tab==='agenda'?'active':''}" data-tab="agenda">Agenda</button>
       <button class="${state.tab==='mine'?'active':''}" data-tab="mine">Mis tareas</button>
     </div>
-    <button class="capture-fab" data-capture-open aria-label="Abrir cámara y subir archivos" title="Capturar o subir">+</button>
+    <button class="capture-fab ${state.tab==='capture'?'active':''}" data-capture-open aria-label="Abrir cámara y subir archivos" title="Capturar o subir">+</button>
     <div class="nav-side nav-right">
       ${teamNav}
       <button class="${state.tab==='account'?'active':''}" data-tab="account">Cuenta</button>
@@ -221,6 +245,7 @@ function render(){
   const root=$('#app');
   if(state.loading){root.innerHTML=loadingView('Preparando Cobertura ECT…');return;}
   root.innerHTML = state.user && state.profile ? mainView() : loginView();
+  if(state.user && state.profile && state.tab==='capture') requestAnimationFrame(()=>setCaptureMode(captureMode));
   if(state.user && state.profile) maybeAutoAppTutorial();
   else maybeAutoLoginTutorial();
 }
@@ -295,12 +320,12 @@ function startRealtime(){
     state.staff=s.docs.map(d=>({id:d.id,...d.data()}));
     const nowAdmin=isAdmin();
     if(wasAdmin!==nowAdmin){setTimeout(()=>startRealtime(),0);return;}
-    render();
+    if(state.tab!=='capture') render();
   },e=>toast(firebaseError(e),true));
-  const u2=db.collection('courses').orderBy('start_at').onSnapshot(s=>{state.courses=s.docs.map(d=>({id:d.id,...d.data()}));render();startLocalAlertLoop()},e=>toast(firebaseError(e),true));
+  const u2=db.collection('courses').orderBy('start_at').onSnapshot(s=>{state.courses=s.docs.map(d=>({id:d.id,...d.data()}));if(state.tab!=='capture') render();startLocalAlertLoop()},e=>toast(firebaseError(e),true));
   state.unsubs=[u1,u2];
   if(isAdmin()){
-    const u3=db.collection('invites').orderBy('created_at','desc').onSnapshot(s=>{state.invites=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>console.warn(e));
+    const u3=db.collection('invites').orderBy('created_at','desc').onSnapshot(s=>{state.invites=s.docs.map(d=>({id:d.id,...d.data()}));if(state.tab!=='capture') render()},e=>console.warn(e));
     state.unsubs.push(u3);
   } else state.invites=[];
 }
@@ -623,26 +648,14 @@ function captureCourseOptions(){
 }
 function captureModal(){
   if(!state.user||!state.profile) return;
-  closeCaptureModal();
-  const bg=document.createElement('div');
-  bg.className='modal-bg capture-modal-bg';
-  bg.innerHTML=`<div class="modal capture-modal">
-    <div class="capture-top"><div><span class="kicker">COBERTURA RÁPIDA</span><h3>Capturar o subir</h3><p>Foto o video desde el celular, o archivos desde la galería. Al enviar se guardan en Drive dentro del día y tu nombre.</p></div><button class="capture-x" data-close-capture aria-label="Cerrar">×</button></div>
-    ${appsScriptConfigured()?'':`<div class="setup-warning compact-warning"><b>Falta conectar Google Drive.</b><span>Pegá la URL /exec de Google Apps Script en <code>config.js</code>.</span></div>`}
-    <div class="capture-modes">
-      <button class="active" data-media-mode="photo">📷 Foto</button>
-      <button data-media-mode="video">🎥 Video</button>
-      <button data-media-mode="gallery">🖼️ Galería</button>
-    </div>
-    <label>Curso relacionado <span class="muted-label">(opcional)</span></label>
-    <select id="captureCourse">${captureCourseOptions()}</select>
-    <div id="captureStage" class="capture-stage"></div>
-    <div id="captureFiles" class="capture-files"></div>
-    <div class="capture-upload-wrap hidden" id="captureUploadWrap"><div class="capture-progress"><i id="captureProgressBar"></i></div><small id="captureProgressText">Preparando…</small></div>
-    <div class="buttons capture-footer"><button class="btn secondary" data-close-capture>Cancelar</button><button class="btn" id="sendCaptureBtn" data-send-capture disabled>Enviar a Drive</button></div>
-  </div>`;
-  document.body.append(bg);
-  setCaptureMode('photo');
+  stopCaptureCamera();
+  captureFiles=[];
+  captureMode='photo';
+  state.tab='capture';
+  render();
+}
+function isMobileCaptureDevice(){
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints>1 && window.matchMedia?.('(max-width: 900px)').matches);
 }
 function setCaptureMode(mode){
   captureMode=mode;
@@ -655,8 +668,12 @@ function setCaptureMode(mode){
     stage.innerHTML=`<label class="gallery-drop"><strong>Elegir fotos o videos</strong><span>Podés seleccionar varios archivos desde tu dispositivo.</span><input id="galleryInput" type="file" accept="image/*,video/*" multiple></label>`;
     return;
   }
+  if(mode==='video' && isMobileCaptureDevice()){
+    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video 9:16</strong><span>Se abrirá la cámara nativa del celular para evitar el zoom del navegador. Grabá sosteniendo el teléfono en vertical.</span><b>Abrir cámara</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
+    return;
+  }
   if(mode==='video' && !window.MediaRecorder){
-    stage.innerHTML=`<label class="gallery-drop"><strong>Grabar video con la cámara</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
+    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><b>Abrir cámara</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
     return;
   }
   stage.innerHTML=`<div class="camera-frame ${mode==='video'?'video-portrait':'photo-landscape'}"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">${mode==='video'?'9:16':'4:3'}</div></div>
@@ -861,7 +878,9 @@ async function uploadCaptureFiles(){
     }
     setUploadProgress(100,`${completed} archivo${completed===1?'':'s'} enviado${completed===1?'':'s'} a Drive.`);
     toast('Archivos enviados a Drive.');
-    setTimeout(closeCaptureModal,900);
+    captureFiles=[];
+    renderCaptureFiles();
+    setTimeout(()=>{document.querySelector('#captureUploadWrap')?.classList.add('hidden')},1200);
   }finally{if(btn)btn.disabled=false}
 }
 
@@ -881,7 +900,7 @@ document.addEventListener('click',async e=>{
   try{
     if(b.dataset.authMode){state.authMode=b.dataset.authMode;state.error='';render()}
     else if(b.dataset.forgot!==undefined)await forgotPassword();
-    else if(b.dataset.tab){state.tab=b.dataset.tab;render()}
+    else if(b.dataset.tab){if(state.tab==='capture'){stopCaptureCamera();captureFiles=[];}state.tab=b.dataset.tab;render()}
     else if(b.dataset.captureOpen!==undefined)captureModal();
     else if(b.dataset.closeCapture!==undefined)closeCaptureModal();
     else if(b.dataset.mediaMode)setCaptureMode(b.dataset.mediaMode);

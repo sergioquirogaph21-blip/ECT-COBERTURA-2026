@@ -1,0 +1,11 @@
+CAPTURA RESPONSIVE - COBERTURA ECT 2026
+
+- El botón + abre una sección completa dentro de la app; ya no usa una ventana modal.
+- Diseño responsive para celular, tablet y escritorio.
+- Foto: cámara dentro de la app, formato 4:3 y alta resolución.
+- Video en celular: abre la cámara nativa del dispositivo para evitar el recorte/zoom de getUserMedia.
+- Para video 9:16, sostener el celular en vertical al grabar.
+- Galería: permite seleccionar fotos y videos como antes.
+- Mantiene Drive, nombres por curso y alertas automáticas al Staff.
+
+Esta modificación es del frontend. Si ya tenés el Apps Script de la versión de alertas instalado, no necesitás cambiarlo por este ajuste visual/cámara.

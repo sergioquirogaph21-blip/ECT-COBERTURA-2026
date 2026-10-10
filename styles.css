@@ -157,3 +157,48 @@
   .capture-modal{max-height:94vh}
   .camera-frame{border-radius:13px}
 }
+
+/* --- Captura como sección propia de la app --- */
+.capture-page{width:100%;max-width:800px;margin:0 auto 18px;display:grid;gap:12px}
+.capture-page-head{padding:4px 2px 0}
+.capture-page-head h2{font-size:24px;line-height:1.1;margin:6px 0 7px}
+.capture-page-head p{margin:0;color:#91a7b5;font-size:12px;line-height:1.5;max-width:680px}
+.capture-panel{padding:16px;overflow:hidden}
+.capture-panel .capture-modes{margin:0 0 14px}
+.capture-course-label{display:block;color:#a8bcc8;font-size:10px;margin:0 0 6px}
+.capture-panel select{width:100%;background:#0a1621;border:1px solid #29465a;color:#f1f8fb;border-radius:11px;padding:12px;min-height:45px;font-size:14px}
+.capture-page .capture-stage{width:100%;margin-top:14px}
+.capture-page .camera-frame{width:100%;max-height:none}
+.capture-page .camera-frame video{object-fit:contain;background:#02070b}
+.capture-page .camera-frame.photo-landscape video{object-fit:cover}
+.capture-footer{display:grid;grid-template-columns:1fr;margin-top:14px}
+.capture-footer .btn{width:100%;min-height:48px}
+.capture-fab.active{box-shadow:0 9px 28px rgba(0,0,0,.48),0 0 0 3px #25b8ff!important}
+.native-video-card{position:relative;display:flex!important;min-height:300px;flex-direction:column;align-items:center;justify-content:center;text-align:center;border:1px solid #315c74;border-radius:18px;background:radial-gradient(circle at 50% 30%,rgba(37,184,255,.13),transparent 38%),#081720;padding:28px 20px!important;margin:0!important;overflow:hidden}
+.native-video-card .native-video-icon{font-size:46px;line-height:1;margin-bottom:14px}
+.native-video-card strong{font-size:20px;color:#f5fbff}
+.native-video-card span{display:block;max-width:430px;margin-top:9px;color:#91a8b6;font-size:11px;line-height:1.55}
+.native-video-card b{display:inline-flex;margin-top:18px;min-height:44px;align-items:center;justify-content:center;padding:0 18px;border-radius:12px;background:var(--yellow);color:#17160c;font-size:12px}
+.native-video-card input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+
+@media(max-width:720px){
+  .capture-page{gap:9px;margin-bottom:4px}
+  .capture-page-head{padding:2px 3px 0}
+  .capture-page-head h2{font-size:21px}
+  .capture-page-head p{font-size:11px}
+  .capture-panel{padding:10px;border-radius:15px}
+  .capture-panel .capture-modes{gap:5px;margin-bottom:10px}
+  .capture-panel .capture-modes button{min-height:43px;font-size:10px;padding:8px 4px}
+  .capture-panel select{font-size:16px;min-height:47px}
+  .capture-page .capture-stage{margin-top:10px}
+  .capture-page .camera-frame.photo-landscape{max-width:100%;border-radius:12px}
+  .native-video-card{min-height:330px;border-radius:13px;padding:24px 14px!important}
+  .native-video-card strong{font-size:18px}
+  .selected-media-item img,.selected-media-item video{width:64px;height:48px}
+}
+
+@media(max-width:390px){
+  .capture-panel{padding:8px}
+  .capture-modes button{font-size:9px!important}
+  .native-video-card{min-height:300px}
+}
