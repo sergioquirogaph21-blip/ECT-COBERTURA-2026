@@ -1,18 +1,16 @@
 SUBIR ESTA VERSIÓN A GITHUB PAGES
 =================================
 
-Esta entrega está preparada especialmente para que NO tengas el problema anterior de las carpetas.
-
-Al descomprimir el ZIP principal, todos los archivos que necesita GitHub Pages quedan en la RAÍZ.
+Esta entrega está preparada con todos los archivos web en la RAÍZ.
 No hay carpeta public/ ni data/.
 
-1. Descomprimí el ZIP principal.
+1. Descomprimí el ZIP.
 2. GitHub > tu repositorio > Add file > Upload files.
-3. Seleccioná TODOS los archivos de la carpeta descomprimida.
+3. Seleccioná todos los archivos de la carpeta descomprimida.
 4. Arrastralos a GitHub.
 5. Commit changes.
 
-Los archivos más importantes que tienen que verse directamente en la raíz del repositorio son:
+Archivos principales:
 - index.html
 - app.js
 - styles.css
@@ -22,16 +20,25 @@ Los archivos más importantes que tienen que verse directamente en la raíz del 
 - logo.png
 - polito.png
 - manifest.webmanifest
-
-También podés subir como archivos normales:
 - firestore.rules.txt
-- firebase.json
-- .firebaserc
-- FUNCIONES_FIREBASE.zip
-- las guías .txt
+- GOOGLE_APPS_SCRIPT_Code.gs
+- GUIA_CAMARA_DRIVE.txt
 
-FUNCIONES_FIREBASE.zip NO se ejecuta en GitHub Pages y no molesta.
-Solo se usa después, localmente, para desplegar los avisos automáticos con Firebase CLI.
-
-GitHub Pages:
+GITHUB PAGES
+------------
 Settings > Pages > Deploy from a branch > main > /(root)
+
+GOOGLE DRIVE SIN BLAZE
+----------------------
+Esta versión NO usa Cloud Functions para Drive.
+Primero desplegá GOOGLE_APPS_SCRIPT_Code.gs como Web App siguiendo GUIA_CAMARA_DRIVE.txt.
+Luego pegá la URL /exec en config.js:
+
+appsScriptUrl: "https://script.google.com/macros/s/.../exec"
+
+Después subí config.js actualizado a GitHub.
+
+La URL de Apps Script no es secreta.
+No subas Client Secret, Refresh Token, Service Account JSON ni credenciales privadas a GitHub.
+
+Desarrollado por Sergio Quiroga.

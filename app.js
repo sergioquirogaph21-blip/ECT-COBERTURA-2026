@@ -27,6 +27,13 @@ let auth = null;
 let db = null;
 let messaging = null;
 let localAlertTimer = null;
+let captureStream = null;
+let captureRecorder = null;
+let captureChunks = [];
+let captureTimer = null;
+let captureStartedAt = 0;
+let captureFiles = [];
+let captureMode = 'photo';
 let loginTutorialOpened = false;
 let appTutorialOpened = false;
 
@@ -37,6 +44,10 @@ function configOK(){
 function vapidConfigured(){
   const v = window.ECT_FIREBASE_CONFIG?.vapidKey || '';
   return !!v && !v.includes('PEGAR_');
+}
+function appsScriptConfigured(){
+  const u = window.ECT_FIREBASE_CONFIG?.appsScriptUrl || '';
+  return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(u) && !u.includes('PEGAR_');
 }
 function toast(msg, err=false){
   const old = document.querySelector('.toast'); if(old) old.remove();
@@ -194,7 +205,17 @@ function mainView(){
     <div class="tabs ${isAdmin()?'with-admin':'staff-only'}"><button class="${state.tab==='agenda'?'active':''}" data-tab="agenda">Agenda</button><button class="${state.tab==='mine'?'active':''}" data-tab="mine">Mis coberturas</button>${teamTab}<button class="${state.tab==='account'?'active':''}" data-tab="account">Cuenta</button></div>
     ${content()}
   </div>
-  <nav class="nav ${isAdmin()?'with-admin':'staff-only'}"><button class="${state.tab==='agenda'?'active':''}" data-tab="agenda">Agenda</button><button class="${state.tab==='mine'?'active':''}" data-tab="mine">Mis tareas</button>${teamNav}<button class="${state.tab==='account'?'active':''}" data-tab="account">Cuenta</button></nav>`;
+  <nav class="nav capture-nav">
+    <div class="nav-side nav-left">
+      <button class="${state.tab==='agenda'?'active':''}" data-tab="agenda">Agenda</button>
+      <button class="${state.tab==='mine'?'active':''}" data-tab="mine">Mis tareas</button>
+    </div>
+    <button class="capture-fab" data-capture-open aria-label="Abrir cámara y subir archivos" title="Capturar o subir">+</button>
+    <div class="nav-side nav-right">
+      ${teamNav}
+      <button class="${state.tab==='account'?'active':''}" data-tab="account">Cuenta</button>
+    </div>
+  </nav>`;
 }
 function render(){
   const root=$('#app');
@@ -429,7 +450,7 @@ function tutorialShell({title,text,step,total,mode='app',final=false}){
 }
 
 function loginTutorialSteps(){return [
-  {title:'Pedí tu código',text:'La primera vez necesitás un código de acceso de un solo uso. Pedíselo a un administrador.'},
+  {title:'Pedí tu código',text:'La primera vez necesitás un código de acceso de un solo uso. Pedíselo a un administrador del ECT.'},
   {title:'Elegí tu correo y contraseña',text:'Con el código podés crear tu cuenta usando el correo que quieras y una contraseña propia.'},
   {title:'Después entrás normalmente',text:'Tu código se usa una sola vez. Desde el siguiente ingreso usás solamente tu correo y tu contraseña.'}
 ]}
@@ -437,12 +458,14 @@ function appTutorialSteps(){
   if(isAdmin()) return [
     {title:'Tu agenda',text:'Elegí el día y revisá los cursos. Desde cada tarjeta podés asignar a alguien o tocar Asignarme para tomar vos la cobertura.'},
     {title:'Mis coberturas',text:'Todo curso que te asignes aparece en Mis coberturas. Ahí podés confirmar que vas a cubrirlo.'},
+    {title:'Cámara rápida',text:'Usá el botón + fijo del centro para sacar una foto, grabar video o elegir archivos. Al enviar, van directo a Drive en la carpeta del día y tu nombre.'},
     {title:'Inicio y fin',text:'Cuando llegues al curso, marcá Inicio. Al terminar, marcá Fin. Así queda registrado quién cubrió cada momento.'},
     {title:'Administración del Staff',text:'Solo los administradores ven la sección Staff. Desde ahí generás códigos y también podés dar o quitar privilegios de administrador.'},
     {title:'Activá los avisos',text:'En Cuenta podés activar notificaciones para recibir recordatorios de tus coberturas.'}
   ];
   return [
     {title:'Tus cursos',text:'Entrá en Mis coberturas para ver únicamente los cursos que te asignaron.'},
+    {title:'Cámara rápida',text:'Usá el botón + fijo del centro para sacar una foto, grabar video o elegir archivos. Al enviar, van directo a Drive en la carpeta del día y tu nombre.'},
     {title:'Confirmá que vas a cubrir',text:'Antes del curso, tocá Confirmar que voy a cubrir para dejar asentado que vas a encargarte.'},
     {title:'Marcá inicio y fin',text:'Al llegar marcá Inicio y, cuando termine el curso, marcá Fin. El sistema registra tu cobertura.'},
     {title:'Activá los avisos',text:'En Cuenta podés activar notificaciones para recibir recordatorios antes de tus cursos.'}
@@ -558,6 +581,270 @@ function startLocalAlertLoop(){
 }
 function stopLocalAlertLoop(){if(localAlertTimer){clearInterval(localAlertTimer);localAlertTimer=null}}
 
+
+function stopCaptureCamera(){
+  if(captureTimer){clearInterval(captureTimer);captureTimer=null}
+  if(captureRecorder && captureRecorder.state!=='inactive'){
+    try{captureRecorder.stop()}catch{}
+  }
+  captureRecorder=null;
+  if(captureStream){
+    captureStream.getTracks().forEach(t=>{try{t.stop()}catch{}});
+    captureStream=null;
+  }
+}
+function closeCaptureModal(){
+  stopCaptureCamera();
+  captureFiles=[];
+  document.querySelector('.capture-modal-bg')?.remove();
+}
+function todayISOParaguay(){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Asuncion',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const o=Object.fromEntries(parts.map(x=>[x.type,x.value]));
+  return `${o.year}-${o.month}-${o.day}`;
+}
+function captureCourseOptions(){
+  const today=todayISOParaguay();
+  let rows=state.courses.filter(c=>dateOf(c.start_at)===today);
+  if(!rows.length) rows=state.courses.filter(c=>dateOf(c.start_at)===state.date);
+  if(!isAdmin()) rows=rows.filter(c=>c.assigned_staff_id===state.profile.staff_id);
+  return `<option value="">Sin curso específico</option>${rows.map(c=>`<option value="${E(c.id)}">${E(timeOf(c.start_at))} · ${E(c.title)}</option>`).join('')}`;
+}
+function captureModal(){
+  if(!state.user||!state.profile) return;
+  closeCaptureModal();
+  const bg=document.createElement('div');
+  bg.className='modal-bg capture-modal-bg';
+  bg.innerHTML=`<div class="modal capture-modal">
+    <div class="capture-top"><div><span class="kicker">COBERTURA RÁPIDA</span><h3>Capturar o subir</h3><p>Foto o video desde el celular, o archivos desde la galería. Al enviar se guardan en Drive dentro del día y tu nombre.</p></div><button class="capture-x" data-close-capture aria-label="Cerrar">×</button></div>
+    ${appsScriptConfigured()?'':`<div class="setup-warning compact-warning"><b>Falta conectar Google Drive.</b><span>Pegá la URL /exec de Google Apps Script en <code>config.js</code>.</span></div>`}
+    <div class="capture-modes">
+      <button class="active" data-media-mode="photo">📷 Foto</button>
+      <button data-media-mode="video">🎥 Video</button>
+      <button data-media-mode="gallery">🖼️ Galería</button>
+    </div>
+    <label>Curso relacionado <span class="muted-label">(opcional)</span></label>
+    <select id="captureCourse">${captureCourseOptions()}</select>
+    <div id="captureStage" class="capture-stage"></div>
+    <div id="captureFiles" class="capture-files"></div>
+    <div class="capture-upload-wrap hidden" id="captureUploadWrap"><div class="capture-progress"><i id="captureProgressBar"></i></div><small id="captureProgressText">Preparando…</small></div>
+    <div class="buttons capture-footer"><button class="btn secondary" data-close-capture>Cancelar</button><button class="btn" id="sendCaptureBtn" data-send-capture disabled>Enviar a Drive</button></div>
+  </div>`;
+  document.body.append(bg);
+  setCaptureMode('photo');
+}
+function setCaptureMode(mode){
+  captureMode=mode;
+  captureFiles=[];
+  stopCaptureCamera();
+  document.querySelectorAll('.capture-modes button').forEach(b=>b.classList.toggle('active',b.dataset.mediaMode===mode));
+  renderCaptureFiles();
+  const stage=document.querySelector('#captureStage'); if(!stage)return;
+  if(mode==='gallery'){
+    stage.innerHTML=`<label class="gallery-drop"><strong>Elegir fotos o videos</strong><span>Podés seleccionar varios archivos desde tu dispositivo.</span><input id="galleryInput" type="file" accept="image/*,video/*" multiple></label>`;
+    return;
+  }
+  if(mode==='video' && !window.MediaRecorder){
+    stage.innerHTML=`<label class="gallery-drop"><strong>Grabar video con la cámara</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
+    return;
+  }
+  stage.innerHTML=`<div class="camera-frame"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">4:3</div></div>
+    <div class="camera-controls">${mode==='photo'
+      ? `<button class="shutter photo" data-take-photo aria-label="Sacar foto"><i></i></button>`
+      : `<button class="shutter video" data-toggle-record aria-label="Grabar video"><i></i></button><span id="recordTime">00:00</span>`}
+    </div><p class="camera-help">${mode==='photo'?'La foto se guarda completa, a la mayor resolución que permita la cámara.':'El video intenta usar formato 4:3 según la cámara del dispositivo. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
+  startCaptureCamera(mode).catch(err=>{stage.innerHTML=`<div class="capture-error">No se pudo abrir la cámara.<br><small>${E(err.message||err)}</small><br><button class="btn secondary" data-media-mode="gallery">Elegir desde galería</button></div>`});
+}
+async function startCaptureCamera(mode){
+  if(!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara.');
+  captureStream=await navigator.mediaDevices.getUserMedia({
+    video:{
+      facingMode:{ideal:'environment'},
+      width:{ideal:4096},
+      height:{ideal:3072}
+    },
+    audio:mode==='video'
+  });
+  const video=document.querySelector('#cameraPreview'); if(!video)return;
+  video.srcObject=captureStream;
+  await video.play();
+}
+function fullFramePhoto(video,canvas){
+  const sw=video.videoWidth, sh=video.videoHeight;
+  if(!sw||!sh) throw new Error('La cámara todavía no está lista.');
+  // Conserva el cuadro completo que entrega la cámara y su resolución real.
+  canvas.width=sw;
+  canvas.height=sh;
+  canvas.getContext('2d',{alpha:false}).drawImage(video,0,0,sw,sh);
+}
+async function takeCapturePhoto(){
+  const video=document.querySelector('#cameraPreview'); if(!video)return;
+  let blob=null;
+  const track=captureStream?.getVideoTracks?.()[0];
+
+  // En navegadores compatibles, ImageCapture toma una foto de alta resolución
+  // directamente desde la cámara, no desde el preview de video.
+  if(track && 'ImageCapture' in window){
+    try{
+      const ic=new ImageCapture(track);
+      blob=await ic.takePhoto();
+    }catch(err){
+      console.warn('ImageCapture no disponible; usando frame completo del video.',err);
+    }
+  }
+
+  // Compatibilidad para Firefox/Safari y otros navegadores.
+  if(!blob){
+    const canvas=document.createElement('canvas');
+    fullFramePhoto(video,canvas);
+    blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',.98));
+  }
+
+  if(!blob) throw new Error('No se pudo generar la foto.');
+  const type=blob.type||'image/jpeg';
+  const ext=type.includes('png')?'png':type.includes('webp')?'webp':'jpg';
+  const file=new File([blob],`foto_${Date.now()}.${ext}`,{type});
+  captureFiles=[file];renderCaptureFiles();
+}
+function bestRecorderMime(){
+  const options=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  return options.find(x=>window.MediaRecorder?.isTypeSupported?.(x))||'';
+}
+function formatElapsed(ms){
+  const sec=Math.floor(ms/1000),m=Math.floor(sec/60),s=sec%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function toggleVideoRecord(){
+  if(!captureStream) throw new Error('La cámara no está disponible.');
+  const btn=document.querySelector('[data-toggle-record]');
+  if(captureRecorder && captureRecorder.state==='recording'){
+    captureRecorder.stop();return;
+  }
+  captureChunks=[];
+  const mime=bestRecorderMime();
+  captureRecorder=new MediaRecorder(captureStream,mime?{mimeType:mime,videoBitsPerSecond:1500000,audioBitsPerSecond:96000}:{videoBitsPerSecond:1500000,audioBitsPerSecond:96000});
+  captureRecorder.ondataavailable=e=>{if(e.data?.size)captureChunks.push(e.data)};
+  captureRecorder.onstop=()=>{
+    if(captureTimer){clearInterval(captureTimer);captureTimer=null}
+    btn?.classList.remove('recording');
+    const finalType=captureRecorder?.mimeType||mime||'video/webm';
+    const ext=finalType.includes('mp4')?'mp4':'webm';
+    const blob=new Blob(captureChunks,{type:finalType});
+    if(blob.size){captureFiles=[new File([blob],`video_${Date.now()}.${ext}`,{type:finalType})];renderCaptureFiles()}
+  };
+  captureRecorder.start(1000);captureStartedAt=Date.now();btn?.classList.add('recording');
+  const label=document.querySelector('#recordTime');
+  captureTimer=setInterval(()=>{
+    const elapsed=Date.now()-captureStartedAt;
+    if(label)label.textContent=formatElapsed(elapsed);
+    if(elapsed>=20000 && captureRecorder?.state==='recording')captureRecorder.stop();
+  },500);
+}
+function humanSize(bytes){
+  if(bytes<1024*1024)return `${Math.max(1,Math.round(bytes/1024))} KB`;
+  return `${(bytes/1024/1024).toFixed(1)} MB`;
+}
+function renderCaptureFiles(){
+  const box=document.querySelector('#captureFiles');const send=document.querySelector('#sendCaptureBtn');
+  if(!box)return;
+  if(!captureFiles.length){box.innerHTML='';if(send)send.disabled=true;return}
+  box.innerHTML=`<div class="selected-media">${captureFiles.map((f,i)=>{
+    const image=f.type.startsWith('image/'); const url=URL.createObjectURL(f);
+    return `<div class="selected-media-item">${image?`<img src="${url}" alt="">`:`<video src="${url}" muted playsinline controls></video>`}<div><strong>${E(f.name)}</strong><small>${E(humanSize(f.size))}</small></div><button data-remove-media="${i}" aria-label="Quitar">×</button></div>`;
+  }).join('')}</div>`;
+  if(send)send.disabled=false;
+}
+function setUploadProgress(pct,text){
+  const wrap=document.querySelector('#captureUploadWrap'),bar=document.querySelector('#captureProgressBar'),label=document.querySelector('#captureProgressText');
+  wrap?.classList.remove('hidden'); if(bar)bar.style.width=`${Math.max(0,Math.min(100,pct))}%`;if(label)label.textContent=text;
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onerror=()=>reject(new Error('No se pudo leer el archivo.'));
+    r.onload=()=>{
+      const raw=String(r.result||'');
+      resolve(raw.includes(',')?raw.split(',').pop():raw);
+    };
+    r.readAsDataURL(file);
+  });
+}
+function postToAppsScript(payload,onSubmitted){
+  return new Promise((resolve,reject)=>{
+    const url=window.ECT_FIREBASE_CONFIG?.appsScriptUrl||'';
+    if(!appsScriptConfigured()) return reject(new Error('Falta configurar appsScriptUrl en config.js.'));
+    const requestId=`ect-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const iframe=document.createElement('iframe');
+    iframe.name=`ect-upload-${requestId}`;
+    iframe.style.display='none';
+    iframe.setAttribute('aria-hidden','true');
+    const form=document.createElement('form');
+    form.method='POST';form.action=url;form.target=iframe.name;form.style.display='none';
+    const add=(name,value)=>{const i=document.createElement('input');i.type='hidden';i.name=name;i.value=value;form.appendChild(i)};
+    add('requestId',requestId);
+    add('payload',JSON.stringify({...payload,requestId}));
+    let done=false;
+    const cleanup=()=>{window.removeEventListener('message',listener);form.remove();setTimeout(()=>iframe.remove(),1000)};
+    const timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('Google Drive tardó demasiado en responder. Probá nuevamente.'));},150000);
+    const listener=(event)=>{
+      const origin=String(event.origin||'');
+      const trusted=origin==='https://script.google.com'||origin.endsWith('.googleusercontent.com');
+      // Apps Script puede renderizar la respuesta dentro de un iframe interno de Google,
+      // por lo que event.source no siempre coincide con iframe.contentWindow.
+      // Validamos el origen de Google + el requestId único de esta carga.
+      if(!trusted && origin!=='null')return;
+      const d=event.data||{};
+      if(d.source!=='ECT_APPS_SCRIPT_UPLOAD'||d.requestId!==requestId)return;
+      if(done)return;done=true;clearTimeout(timer);cleanup();
+      if(d.ok)resolve(d); else reject(new Error(d.error||'Google Drive rechazó la carga.'));
+    };
+    window.addEventListener('message',listener);
+    document.body.append(iframe,form);
+    form.submit();
+    onSubmitted?.();
+  });
+}
+async function uploadCaptureFiles(){
+  if(!captureFiles.length) throw new Error('Primero sacá una foto, grabá un video o elegí archivos.');
+  if(!appsScriptConfigured()) throw new Error('Falta conectar Google Drive. Pegá la URL /exec de Apps Script en config.js.');
+  const btn=document.querySelector('#sendCaptureBtn');if(btn)btn.disabled=true;
+  const courseId=document.querySelector('#captureCourse')?.value||'';
+  const course=state.courses.find(c=>c.id===courseId);
+  let completed=0;
+  try{
+    const idToken=await state.user.getIdToken(true);
+    for(let i=0;i<captureFiles.length;i++){
+      const file=captureFiles[i];
+      if(file.size>15*1024*1024) throw new Error(`${file.name}: supera 15 MB. Para esta versión sin Blaze usá videos cortos o comprimidos.`);
+      setUploadProgress((i/captureFiles.length)*100,`Leyendo ${i+1} de ${captureFiles.length}…`);
+      const dataBase64=await fileToBase64(file);
+      setUploadProgress(((i+0.25)/captureFiles.length)*100,`Enviando ${i+1} de ${captureFiles.length} a Drive…`);
+      const result=await postToAppsScript({
+        idToken,
+        originalName:file.name,
+        mimeType:file.type||'application/octet-stream',
+        size:file.size,
+        dataBase64,
+        courseId:courseId||'',
+        courseTitle:course?.title||''
+      },()=>setUploadProgress(((i+0.5)/captureFiles.length)*100,`Guardando ${i+1} de ${captureFiles.length} en Drive…`));
+      completed++;
+      try{
+        await db.collection('media_uploads').add({
+          uid:state.user.uid,staff_id:state.profile.staff_id,email:state.profile.email,
+          file_id:result.fileId||null,file_name:result.fileName||file.name,drive_folder:result.folderPath||'',
+          drive_url:result.fileUrl||null,course_id:courseId||null,course_title:course?.title||'',mime_type:file.type,size:file.size,
+          created_at:firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }catch{}
+      setUploadProgress(((i+1)/captureFiles.length)*100,`${i+1} de ${captureFiles.length} guardado${i===0?'':'s'}…`);
+    }
+    setUploadProgress(100,`${completed} archivo${completed===1?'':'s'} enviado${completed===1?'':'s'} a Drive.`);
+    toast('Archivos enviados a Drive.');
+    setTimeout(closeCaptureModal,900);
+  }finally{if(btn)btn.disabled=false}
+}
+
 document.addEventListener('submit',async e=>{
   if(e.target.id==='loginForm'){
     e.preventDefault();const f=new FormData(e.target),b=e.target.querySelector('button[type="submit"]');b.disabled=true;
@@ -575,6 +862,13 @@ document.addEventListener('click',async e=>{
     if(b.dataset.authMode){state.authMode=b.dataset.authMode;state.error='';render()}
     else if(b.dataset.forgot!==undefined)await forgotPassword();
     else if(b.dataset.tab){state.tab=b.dataset.tab;render()}
+    else if(b.dataset.captureOpen!==undefined)captureModal();
+    else if(b.dataset.closeCapture!==undefined)closeCaptureModal();
+    else if(b.dataset.mediaMode)setCaptureMode(b.dataset.mediaMode);
+    else if(b.dataset.takePhoto!==undefined)await takeCapturePhoto();
+    else if(b.dataset.toggleRecord!==undefined)toggleVideoRecord();
+    else if(b.dataset.removeMedia!==undefined){captureFiles.splice(Number(b.dataset.removeMedia),1);renderCaptureFiles();}
+    else if(b.dataset.sendCapture!==undefined)await uploadCaptureFiles();
     else if(b.dataset.date){state.date=b.dataset.date;render()}
     else if(b.dataset.logout!==undefined)await doLogout();
     else if(b.dataset.assign)assignModal(b.dataset.assign);
@@ -595,6 +889,15 @@ document.addEventListener('click',async e=>{
     else if(b.dataset.copyInvite)await copyInvite(b.dataset.copyInvite);
     else if(b.dataset.enableNotifications!==undefined)await setupPushToken();
   }catch(err){toast(firebaseError(err),true)}
+});
+
+
+document.addEventListener('change',e=>{
+  if(e.target.id==='galleryInput' || e.target.id==='nativeVideoInput'){
+    const files=[...e.target.files].filter(f=>f.type.startsWith('image/')||f.type.startsWith('video/')).slice(0,20);
+    captureFiles=files;
+    renderCaptureFiles();
+  }
 });
 
 function init(){

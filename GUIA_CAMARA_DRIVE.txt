@@ -1,0 +1,182 @@
+COBERTURA ECT 2026 - GOOGLE APPS SCRIPT + DRIVE (SIN BLAZE)
+============================================================
+
+ESTA ES LA OPCIÓN SIN TARJETA / SIN PLAN BLAZE
+-----------------------------------------------
+La web sigue en GitHub Pages y Firebase sigue manejando login, Staff, cursos y Firestore.
+La subida de fotos/videos ahora la hace Google Apps Script directamente hacia tu Drive.
+
+YA NO NECESITÁS PARA DRIVE:
+- Firebase Cloud Functions
+- Firebase Secret Manager
+- DRIVE_CLIENT_ID
+- DRIVE_CLIENT_SECRET
+- DRIVE_REFRESH_TOKEN
+- OAuth Playground
+- desplegar functions
+
+La Google Drive API que habilitaste puede quedar habilitada; no molesta. Tampoco es necesaria para este método porque Apps Script usa DriveApp.
+
+LÍMITES DE ESTA VERSIÓN
+-----------------------
+- Máximo 15 MB por archivo.
+- La grabación desde la cámara se corta a los 20 segundos.
+- Fotos: recomendado y muy cómodo.
+- Videos: ideal para clips cortos. Para videos largos/grandes, esta opción sin Blaze no es la ideal.
+- Los archivos se suben uno por uno.
+
+ESTRUCTURA QUE CREA AUTOMÁTICAMENTE
+-----------------------------------
+ECT COBERTURA 2026/
+  Lunes 12-10-2026/
+    Sergio Quiroga/
+    Laura Ruiz Diaz/
+    Jhonatan Ferri/
+    Araceli Chavez/
+    Marcos Ibarra/
+    Nicole Fariña/
+    Nara Ruiz/
+    Luz Rodriguez/
+    Carlos Gonzalez/
+    Deisy Villalba/
+    Matias Barrios/
+
+Cuando se crea la carpeta de un día, Apps Script crea también las 11 carpetas del Staff.
+El archivo siempre va a la carpeta del usuario que inició sesión en Firebase.
+
+PASO 1 - CREAR EL PROYECTO DE APPS SCRIPT
+------------------------------------------
+1. Entrá con la cuenta de Google cuyo Drive será el Drive central.
+2. Abrí:
+   https://script.google.com/
+3. Tocá "Nuevo proyecto".
+4. Nombre sugerido: Cobertura ECT Drive.
+5. Borrá el contenido de Code.gs.
+6. Abrí en este ZIP el archivo:
+   GOOGLE_APPS_SCRIPT_Code.gs
+7. Copiá TODO y pegalo en Code.gs.
+8. Guardá.
+
+IMPORTANTE:
+No pegues Client ID, Client Secret ni Refresh Token. Este método no los usa.
+
+PASO 2 - CONFIGURAR ZONA HORARIA
+--------------------------------
+1. En Apps Script entrá en Configuración del proyecto (engranaje).
+2. Zona horaria: America/Asuncion (GMT-03:00, Paraguay) si aparece.
+3. Guardá.
+
+PASO 3 - DESPLEGAR COMO APLICACIÓN WEB
+--------------------------------------
+1. Arriba a la derecha: Implementar > Nueva implementación.
+2. Tocá el engranaje / Seleccionar tipo > Aplicación web.
+3. Descripción: Cobertura ECT Drive.
+4. Ejecutar como: YO.
+5. Quién tiene acceso: Cualquiera / Anyone.
+   Es importante que sea "Cualquiera" porque los Staff no tienen que iniciar sesión en Google.
+   La seguridad la valida el token de Firebase dentro del script.
+6. Tocá Implementar.
+7. Google va a pedir permisos para:
+   - Google Drive
+   - conexiones externas (para validar Firebase)
+   Aceptalos con la cuenta dueña del Drive.
+8. Copiá la URL de la aplicación web. Debe terminar en:
+   /exec
+
+Ejemplo:
+https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec
+
+PASO 4 - PEGAR LA URL EN config.js
+----------------------------------
+Abrí config.js y buscá:
+
+appsScriptUrl: "PEGAR_URL_DEL_WEB_APP_APPS_SCRIPT_AQUI"
+
+Reemplazalo por tu URL /exec:
+
+appsScriptUrl: "https://script.google.com/macros/s/AKfycb.../exec"
+
+Guardá config.js y subilo a GitHub Pages.
+
+La URL del Web App NO es una contraseña. Puede estar en config.js.
+El servidor igualmente exige un ID Token válido de Firebase y verifica que el usuario sea Staff activo.
+
+PASO 5 - PROBAR
+---------------
+1. Esperá a que GitHub Pages actualice.
+2. Abrí la app publicada.
+3. Iniciá sesión con Sergio o cualquier Staff activo.
+4. Tocá el botón + del centro.
+5. Sacá una foto.
+6. Opcional: elegí el curso relacionado.
+7. Tocá "Enviar a Drive".
+8. Esperá el mensaje "Archivos enviados a Drive".
+9. Revisá el Drive de la cuenta que creó el Apps Script.
+
+Debería aparecer:
+ECT COBERTURA 2026 > [Día + fecha] > [Nombre del Staff] > archivo
+
+SEGURIDAD
+---------
+- El Apps Script se ejecuta como la cuenta dueña del Drive.
+- Cada solicitud tiene que incluir un Firebase ID Token válido.
+- El script consulta Firebase Auth para comprobar el token.
+- Luego consulta Firestore /users/{uid} usando ese mismo token.
+- Solo acepta perfiles is_staff=true y active=true.
+- El nombre de la carpeta sale del perfil validado, no de un nombre enviado libremente desde el navegador.
+
+SI DICE "FALTA CONECTAR GOOGLE DRIVE"
+--------------------------------------
+Revisá config.js y confirmá que appsScriptUrl tenga la URL que termina en /exec.
+Después hacé Ctrl+F5 o esperá a que GitHub Pages actualice.
+
+SI DICE "SESION DE FIREBASE INVALIDA"
+--------------------------------------
+Cerrá sesión y volvé a iniciar sesión en la app.
+
+SI APPS SCRIPT DICE QUE NO TIENE PERMISOS
+-----------------------------------------
+Apps Script > Implementar > Administrar implementaciones.
+Editá/volvé a implementar y autorizá Drive con la cuenta propietaria.
+
+SI CAMBIÁS EL CÓDIGO DE APPS SCRIPT
+-----------------------------------
+Después de modificar Code.gs:
+1. Implementar > Administrar implementaciones.
+2. Editar (lápiz).
+3. Nueva versión.
+4. Implementar.
+La URL /exec puede mantenerse.
+
+SOBRE EL OAUTH QUE CONFIGURASTE ANTES
+-------------------------------------
+Como este método ya no usa Client ID/Secret/Refresh Token, podés borrar el cliente OAuth "Cobertura ECT Drive" si querés.
+Como el Refresh Token apareció en una captura durante la configuración, es recomendable revocarlo/eliminar ese acceso de Google aunque ya no lo vayamos a usar.
+
+NOTIFICACIONES
+--------------
+Este cambio reemplaza SOLO la subida a Drive.
+Las notificaciones locales con la app abierta siguen funcionando igual.
+Las notificaciones programadas con la app cerrada mediante Cloud Functions siguen requiriendo Blaze si decidís usarlas en el futuro.
+
+Desarrollado por Sergio Quiroga.
+
+
+CORRECCIÓN SI QUEDA EN 'GUARDANDO...'
+--------------------------------------
+Esta versión ya incluye ALLOWALL en XFrameOptions de Apps Script para que la respuesta del Web App pueda volver al iframe oculto de GitHub Pages/Live Server.
+Si ya habías desplegado una versión anterior de Code.gs, después de pegar este Code.gs corregido tenés que crear una NUEVA VERSIÓN de la implementación:
+1. Apps Script > Implementar > Administrar implementaciones.
+2. Lápiz / Editar.
+3. En Versión elegir Nueva versión.
+4. Implementar.
+5. La URL /exec puede seguir siendo la misma.
+
+
+## Nombres automáticos en Drive
+Los archivos se renombran al guardarse dentro de la carpeta del Staff/día:
+- `IMG_0001-Nombre-del-curso.jpg`
+- `IMG_0002-Nombre-del-curso.jpg`
+- `VID_0003-Nombre-del-curso.webm`
+
+La numeración continúa automáticamente según los archivos ya guardados en esa carpeta. Para aplicar este cambio, actualizá `Code.gs` en Apps Script y creá una nueva versión de la implementación web.

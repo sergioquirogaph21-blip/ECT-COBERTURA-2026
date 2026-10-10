@@ -120,6 +120,16 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isStaff() && resource.data.uid == request.auth.uid);
     }
 
+
+
+    match /media_uploads/{uploadId} {
+      allow create: if isStaff() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.staff_id == myStaffId();
+      allow read: if isAdmin() || (isStaff() && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
     match /profiles/{document=**} {
       allow read, write: if false;
     }
