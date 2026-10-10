@@ -155,9 +155,11 @@ Como el Refresh Token apareció en una captura durante la configuración, es rec
 
 NOTIFICACIONES
 --------------
-Este cambio reemplaza SOLO la subida a Drive.
-Las notificaciones locales con la app abierta siguen funcionando igual.
-Las notificaciones programadas con la app cerrada mediante Cloud Functions siguen requiriendo Blaze si decidís usarlas en el futuro.
+Esta versión también incluye alertas automáticas SIN Blaze mediante Google Apps Script.
+Además de las notificaciones locales con la app abierta, el mismo Apps Script puede ejecutar un trigger cada minuto para:
+- avisar al Staff asignado 10 minutos antes;
+- avisar a todos los demás Staff si el curso comienza y todavía no se marcó inicio.
+Ver GUIA_ALERTAS_AUTOMATICAS_SIN_BLAZE.txt.
 
 Desarrollado por Sergio Quiroga.
 

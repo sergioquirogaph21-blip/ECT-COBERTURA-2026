@@ -52,3 +52,11 @@ Los archivos se renombran al guardarse dentro de la carpeta del Staff/día:
 - `VID_0003-Nombre-del-curso.webm`
 
 La numeración continúa automáticamente según los archivos ya guardados en esa carpeta. Para aplicar este cambio, actualizá `Code.gs` en Apps Script y creá una nueva versión de la implementación web.
+
+## Alertas automáticas sin Blaze
+
+Esta entrega agrega alertas programadas mediante Google Apps Script:
+- recordatorio al Staff asignado unos 10 minutos antes;
+- alerta a todos los demás Staff cuando el curso ya comenzó y el asignado todavía no marcó inicio.
+
+Para activarlas seguí `GUIA_ALERTAS_AUTOMATICAS_SIN_BLAZE.txt` y copiá también `APPS_SCRIPT_appsscript.json` al manifiesto del proyecto de Apps Script.

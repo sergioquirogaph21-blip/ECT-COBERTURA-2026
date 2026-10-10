@@ -1,0 +1,120 @@
+COBERTURA ECT 2026 - ALERTAS AUTOMÁTICAS SIN BLAZE
+===================================================
+
+QUÉ HACE
+--------
+1. Aproximadamente 10 minutos antes del curso:
+   - Envía un push SOLO al Staff asignado.
+
+2. Cuando llega la hora de inicio:
+   - Si el Staff asignado todavía NO tocó "Marcar inicio",
+     envía "CURSO SIN CUBRIR" a TODOS LOS DEMÁS Staff que
+     tengan las notificaciones activadas.
+   - No envía ese segundo aviso al Staff que estaba asignado.
+   - El aviso se envía una sola vez por curso.
+
+3. Funciona con la app cerrada.
+   No usa Firebase Cloud Functions ni requiere Blaze.
+   Usa el mismo Google Apps Script que ya recibe las fotos de Drive.
+
+REQUISITOS
+----------
+- Cada Staff debe haber entrado al menos una vez a la app y tocar:
+  Cuenta > Activar notificaciones.
+- Debe existir su token en Firestore > push_tokens.
+- La VAPID key debe seguir configurada en config.js.
+- Usá en Apps Script la MISMA cuenta Google que administra el proyecto Firebase cobertura-ect.
+
+PASO 1 - ACTUALIZAR Code.gs
+---------------------------
+En script.google.com abrí "Cobertura ECT Drive".
+Reemplazá Code.gs por el nuevo GOOGLE_APPS_SCRIPT_Code.gs de este ZIP.
+Guardá.
+
+La Web App de Drive también debe actualizarse:
+Implementar > Administrar implementaciones > lápiz > Nueva versión > Implementar.
+La URL /exec puede seguir siendo la misma.
+
+PASO 2 - MOSTRAR appsscript.json
+--------------------------------
+En Apps Script:
+1. Configuración del proyecto (ícono de engranaje).
+2. Activá "Mostrar el archivo de manifiesto appsscript.json en el editor".
+3. Volvé a Editor.
+4. Abrí appsscript.json.
+5. Reemplazá TODO su contenido por APPS_SCRIPT_appsscript.json de este ZIP.
+6. Guardá.
+
+Esto autoriza al script a:
+- acceder al Drive,
+- consultar Firestore,
+- enviar mensajes FCM,
+- crear un trigger automático.
+
+PASO 3 - AUTORIZAR E INSTALAR EL TRIGGER
+-----------------------------------------
+En la parte superior del editor de Apps Script seleccioná la función:
+
+  instalarAlertasAutomaticasECT
+
+Tocá Ejecutar.
+Google pedirá permisos. Aceptalos con la misma cuenta que administra Cobertura ECT.
+
+Esta función crea un trigger que ejecuta:
+
+  procesarAlertasCoberturaECT
+
+cada 1 minuto.
+
+Podés comprobarlo en Apps Script > Activadores (ícono de reloj).
+Debe aparecer procesarAlertasCoberturaECT como activador basado en tiempo.
+
+PASO 4 - PROBAR PUSH DESDE APPS SCRIPT
+---------------------------------------
+En el selector de funciones elegí:
+
+  probarPushTodosECT
+
+Tocá Ejecutar.
+Debe llegar una notificación "Prueba Cobertura ECT" a todos los dispositivos activos.
+
+Si aparece un error 403 relacionado con Firebase Cloud Messaging API:
+Google Cloud Console > proyecto cobertura-ect > APIs y servicios > Biblioteca >
+buscá "Firebase Cloud Messaging API" y asegurate de que esté habilitada.
+
+PASO 5 - PROBAR LA LÓGICA REAL
+-------------------------------
+1. Editá un curso para que comience dentro de 9 o 10 minutos.
+2. Asignalo a Sergio (o a otro Staff con push activo).
+3. No marques inicio.
+4. Alrededor de 10 minutos antes debe recibir el aviso el Staff asignado.
+5. Cuando llegue la hora del curso, si todavía no tocó "Marcar inicio",
+   los demás Staff con push activo deben recibir:
+
+   "⚠️ Curso sin cubrir"
+
+En Firestore, el curso queda marcado con:
+- reminder_10_sent_at
+- uncovered_alert_sent_at
+para que no se dupliquen los avisos.
+
+SI CAMBIÁS HORARIO O ASIGNACIÓN
+--------------------------------
+La app ya reinicia esos dos campos al modificar horario/asignación,
+por lo que los nuevos avisos se vuelven a calcular correctamente.
+
+PARA PAUSAR LAS ALERTAS
+------------------------
+Ejecutá en Apps Script:
+
+  desactivarAlertasAutomaticasECT
+
+O eliminá el trigger desde Apps Script > Activadores.
+
+IMPORTANTE
+----------
+Los activadores de Apps Script pueden ejecutarse con un pequeño desfase.
+La revisión es cada 1 minuto, por lo que el aviso normalmente llega alrededor
+de la hora correspondiente, no necesariamente en el segundo exacto.
+
+Desarrollado por Sergio Quiroga.

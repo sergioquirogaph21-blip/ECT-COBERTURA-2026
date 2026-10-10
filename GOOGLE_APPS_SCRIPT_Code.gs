@@ -124,6 +124,7 @@ function firestoreValue_(v) {
   if (Object.prototype.hasOwnProperty.call(v, 'booleanValue')) return v.booleanValue;
   if (Object.prototype.hasOwnProperty.call(v, 'integerValue')) return Number(v.integerValue);
   if (Object.prototype.hasOwnProperty.call(v, 'doubleValue')) return Number(v.doubleValue);
+  if (Object.prototype.hasOwnProperty.call(v, 'timestampValue')) return v.timestampValue;
   if (Object.prototype.hasOwnProperty.call(v, 'nullValue')) return null;
   return null;
 }
@@ -195,4 +196,244 @@ function reply_(obj) {
     'try{window.top.postMessage(' + json + ', "*");}catch(e){}' +
     '</script><p>Listo.</p>'
   ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/* ==========================================================
+   ALERTAS AUTOMÁTICAS DE COBERTURA SIN BLAZE
+   ----------------------------------------------------------
+   - 10 minutos antes: avisa al Staff asignado.
+   - Al comenzar el curso sin "Marcar inicio": avisa a TODO
+     el resto del Staff que tenga push activado.
+   - Funciona con la app cerrada mediante un trigger de
+     Google Apps Script cada 1 minuto.
+   ========================================================== */
+
+const ECT_ALERT_HANDLER = 'procesarAlertasCoberturaECT';
+const ECT_ALERT_WINDOW_AFTER_START_MIN = 15;
+
+/**
+ * Ejecutá esta función UNA sola vez desde Apps Script.
+ * Crea (o reemplaza) el trigger que revisa las coberturas cada minuto.
+ */
+function instalarAlertasAutomaticasECT() {
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === ECT_ALERT_HANDLER) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger(ECT_ALERT_HANDLER)
+    .timeBased()
+    .everyMinutes(1)
+    .create();
+  return 'Alertas automáticas instaladas. Se revisarán los cursos cada minuto.';
+}
+
+/** Elimina el trigger automático si alguna vez querés pausarlo. */
+function desactivarAlertasAutomaticasECT() {
+  let removed = 0;
+  ScriptApp.getProjectTriggers().forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === ECT_ALERT_HANDLER) {
+      ScriptApp.deleteTrigger(trigger);
+      removed++;
+    }
+  });
+  return 'Triggers eliminados: ' + removed;
+}
+
+/**
+ * Prueba rápida: envía un push a todos los dispositivos activos.
+ * Útil para verificar la configuración antes del evento.
+ */
+function probarPushTodosECT() {
+  ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  const tokenDocs = listFirestoreCollection_('push_tokens');
+  const activeTokens = tokenDocs
+    .map(function(d){ return {doc:d.name, data:firestoreFields_(d.fields || {})}; })
+    .filter(function(x){ return x.data.active !== false && !!x.data.token; });
+
+  const result = sendPushToTokens_(activeTokens, {
+    title: 'Prueba Cobertura ECT',
+    body: 'Las alertas automáticas están configuradas correctamente.',
+    tag: 'ect-test-' + Date.now(),
+    url: './'
+  });
+  return 'Push enviados: ' + result.sent + ' / ' + activeTokens.length;
+}
+
+/**
+ * Esta función la ejecuta el trigger cada minuto.
+ * También podés ejecutarla manualmente para probar la lógica.
+ */
+function procesarAlertasCoberturaECT() {
+  const courseDocs = listFirestoreCollection_('courses');
+  const tokenDocs = listFirestoreCollection_('push_tokens');
+  const staffDocs = listFirestoreCollection_('staff');
+
+  const tokens = tokenDocs
+    .map(function(d){ return {doc:d.name, data:firestoreFields_(d.fields || {})}; })
+    .filter(function(x){ return x.data.active !== false && !!x.data.token && !!x.data.staff_id; });
+
+  const staffNames = {};
+  staffDocs.forEach(function(d){
+    const s = firestoreFields_(d.fields || {});
+    const id = firestoreDocId_(d.name);
+    if (id) staffNames[id] = s.name || id;
+  });
+
+  const nowLocal = Utilities.formatDate(new Date(), TIME_ZONE, "yyyy-MM-dd'T'HH:mm");
+  const nowMinute = localMinuteNumber_(nowLocal);
+  let reminders = 0;
+  let uncovered = 0;
+
+  courseDocs.forEach(function(doc){
+    const c = firestoreFields_(doc.fields || {});
+    if (!c.start_at) return;
+    const startMinute = localMinuteNumber_(c.start_at);
+    if (!isFinite(startMinute)) return;
+    const diff = startMinute - nowMinute; // minutos hasta el inicio
+    const assigned = c.assigned_staff_id || '';
+
+    // 1) Recordatorio al Staff asignado: alrededor de 10 minutos antes.
+    if (assigned && !c.check_start && !c.reminder_10_sent_at && diff <= 10 && diff >= 8) {
+      const recipients = tokens.filter(function(t){ return t.data.staff_id === assigned; });
+      const r = sendPushToTokens_(recipients, {
+        title: 'Tu cobertura empieza en 10 minutos',
+        body: (c.title || 'Curso') + ' · ' + (c.location || 'Lugar sin definir'),
+        tag: '10m-' + firestoreDocId_(doc.name),
+        url: './'
+      });
+      if (r.sent > 0) {
+        setFirestoreTimestampField_(doc.name, 'reminder_10_sent_at');
+        reminders++;
+      }
+    }
+
+    // 2) Curso iniciado sin "Marcar inicio": avisar a TODOS LOS DEMÁS.
+    // Se da una ventana de hasta 15 min por si un trigger se retrasa.
+    if (assigned && !c.check_start && !c.uncovered_alert_sent_at && diff <= 0 && diff >= -ECT_ALERT_WINDOW_AFTER_START_MIN) {
+      const recipients = tokens.filter(function(t){ return t.data.staff_id !== assigned; });
+      const assignedName = staffNames[assigned] || 'el Staff asignado';
+      const r = sendPushToTokens_(recipients, {
+        title: '⚠️ Curso sin cubrir',
+        body: (c.title || 'Un curso') + ' ya comenzó y ' + assignedName + ' todavía no marcó el inicio. ¿Podés cubrirlo?',
+        tag: 'uncovered-' + firestoreDocId_(doc.name),
+        url: './'
+      });
+      if (r.sent > 0) {
+        setFirestoreTimestampField_(doc.name, 'uncovered_alert_sent_at');
+        uncovered++;
+      }
+    }
+  });
+
+  return 'Recordatorios: ' + reminders + ' | Alertas sin cubrir: ' + uncovered;
+}
+
+function listFirestoreCollection_(collectionName) {
+  const out = [];
+  let nextPageToken = '';
+  const accessToken = ScriptApp.getOAuthToken();
+  do {
+    let url = 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(FIREBASE_PROJECT_ID) +
+      '/databases/(default)/documents/' + encodeURIComponent(collectionName) + '?pageSize=300';
+    if (nextPageToken) url += '&pageToken=' + encodeURIComponent(nextPageToken);
+    const res = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: {Authorization: 'Bearer ' + accessToken},
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      throw new Error('Firestore ' + collectionName + ': HTTP ' + res.getResponseCode() + ' · ' + res.getContentText());
+    }
+    const data = JSON.parse(res.getContentText() || '{}');
+    (data.documents || []).forEach(function(d){ out.push(d); });
+    nextPageToken = data.nextPageToken || '';
+  } while (nextPageToken);
+  return out;
+}
+
+function firestoreDocId_(docName) {
+  const parts = String(docName || '').split('/');
+  return parts.length ? parts[parts.length - 1] : '';
+}
+
+function localMinuteNumber_(dateTime) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(dateTime || ''));
+  if (!m) return NaN;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])) / 60000;
+}
+
+function setFirestoreTimestampField_(documentName, fieldName) {
+  const url = 'https://firestore.googleapis.com/v1/' + documentName +
+    '?updateMask.fieldPaths=' + encodeURIComponent(fieldName);
+  const fields = {};
+  fields[fieldName] = {timestampValue: new Date().toISOString()};
+  const res = UrlFetchApp.fetch(url, {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    payload: JSON.stringify({fields: fields}),
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() < 200 || res.getResponseCode() >= 300) {
+    throw new Error('No se pudo marcar ' + fieldName + ': HTTP ' + res.getResponseCode() + ' · ' + res.getContentText());
+  }
+}
+
+function setFirestoreBooleanField_(documentName, fieldName, value) {
+  const url = 'https://firestore.googleapis.com/v1/' + documentName +
+    '?updateMask.fieldPaths=' + encodeURIComponent(fieldName);
+  const fields = {};
+  fields[fieldName] = {booleanValue: !!value};
+  UrlFetchApp.fetch(url, {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+    payload: JSON.stringify({fields: fields}),
+    muteHttpExceptions: true
+  });
+}
+
+function sendPushToTokens_(tokenEntries, message) {
+  let sent = 0;
+  let failed = 0;
+  tokenEntries.forEach(function(entry){
+    const token = entry.data.token;
+    if (!token) return;
+    const payload = {
+      message: {
+        token: String(token),
+        data: {
+          title: String(message.title || 'Cobertura ECT'),
+          body: String(message.body || 'Tenés un nuevo aviso.'),
+          tag: String(message.tag || 'ect-cobertura'),
+          url: String(message.url || './')
+        }
+      }
+    };
+    const res = UrlFetchApp.fetch(
+      'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(FIREBASE_PROJECT_ID) + '/messages:send',
+      {
+        method: 'post',
+        contentType: 'application/json',
+        headers: {Authorization: 'Bearer ' + ScriptApp.getOAuthToken()},
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      }
+    );
+    const code = res.getResponseCode();
+    const body = res.getContentText() || '';
+    if (code >= 200 && code < 300) {
+      sent++;
+    } else {
+      failed++;
+      // Si Firebase informa que el token ya no existe, lo desactivamos.
+      if (body.indexOf('UNREGISTERED') >= 0 || body.indexOf('registration-token-not-registered') >= 0) {
+        try { setFirestoreBooleanField_(entry.doc, 'active', false); } catch (e) {}
+      }
+      console.log('FCM error ' + code + ': ' + body);
+    }
+  });
+  return {sent:sent, failed:failed};
 }

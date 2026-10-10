@@ -542,7 +542,18 @@ async function setupPushToken(){
   const id=await sha256(token);
   await db.collection('push_tokens').doc(id).set({token,uid:state.user.uid,staff_id:state.profile.staff_id,email:state.profile.email,active:true,user_agent:navigator.userAgent,updated_at:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
   state.notificationReady=true;
-  try{messaging.onMessage(payload=>{const title=payload.data?.title||'Cobertura ECT';const body=payload.data?.body||'Tenés un nuevo aviso.';toast(`${title}: ${body}`)})}catch{}
+  try{messaging.onMessage(payload=>{
+    const title=payload.data?.title||'Cobertura ECT';
+    const body=payload.data?.body||'Tenés un nuevo aviso.';
+    const tag=payload.data?.tag||'';
+    const m=/^(10m|uncovered)-(.+)$/.exec(tag);
+    if(m){
+      const kind=m[1]==='10m'?'10m':'uncovered';
+      if(localAlertSeen(kind,m[2])) return;
+      markLocalAlert(kind,m[2]);
+    }
+    toast(`${title}: ${body}`);
+  })}catch{}
   toast('Notificaciones activadas en este dispositivo.');
   render();
 }
@@ -564,12 +575,12 @@ function checkLocalAlerts(){
   for(const c of state.courses){
     const start=courseStartMillis(c); if(!Number.isFinite(start))continue;
     const mins=(start-now)/60000;
-    if(c.assigned_staff_id===state.profile.staff_id && mins<=10 && mins>8 && !localAlertSeen('10m',c.id)){
+    if(c.assigned_staff_id===state.profile.staff_id && mins<=10 && mins>8 && !c.reminder_10_sent_at && !localAlertSeen('10m',c.id)){
       markLocalAlert('10m',c.id);
       showLocalNotification('Tu cobertura empieza en 10 minutos',`${c.title} · ${c.location||'Lugar sin definir'}`,`10m-${c.id}`);
     }
     const isOther=c.assigned_staff_id!==state.profile.staff_id;
-    if(isOther && now>=start && now<start+5*60000 && !c.check_start && !localAlertSeen('uncovered',c.id)){
+    if(isOther && now>=start && now<start+5*60000 && !c.check_start && !c.uncovered_alert_sent_at && !localAlertSeen('uncovered',c.id)){
       markLocalAlert('uncovered',c.id);
       showLocalNotification('⚠️ Curso sin cubrir',`${c.title} todavía no tiene el inicio de cobertura marcado.`,`uncovered-${c.id}`);
     }
@@ -652,7 +663,7 @@ function setCaptureMode(mode){
     <div class="camera-controls">${mode==='photo'
       ? `<button class="shutter photo" data-take-photo aria-label="Sacar foto"><i></i></button>`
       : `<button class="shutter video" data-toggle-record aria-label="Grabar video"><i></i></button><span id="recordTime">00:00</span>`}
-    </div><p class="camera-help">${mode==='photo'?'Foto en 4:3 horizontal, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
+    </div><p class="camera-help">${mode==='photo'?'Foto en 4:3, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
   startCaptureCamera(mode).catch(err=>{stage.innerHTML=`<div class="capture-error">No se pudo abrir la cámara.<br><small>${E(err.message||err)}</small><br><button class="btn secondary" data-media-mode="gallery">Elegir desde galería</button></div>`});
 }
 async function startCaptureCamera(mode){
@@ -668,7 +679,7 @@ async function startCaptureCamera(mode){
         facingMode:{ideal:'environment'},
         width:{ideal:4096},
         height:{ideal:3072},
-        aspectRatio:{ideal:3/4}
+        aspectRatio:{ideal:4/3}
       };
   captureStream=await navigator.mediaDevices.getUserMedia({
     video:videoConstraints,

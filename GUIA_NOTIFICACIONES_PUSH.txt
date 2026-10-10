@@ -1,17 +1,22 @@
-COBERTURA ECT 2026 - NOTIFICACIONES EN ESTA VERSIÓN SIN BLAZE
-=============================================================
+COBERTURA ECT 2026 - NOTIFICACIONES PUSH SIN BLAZE
+==================================================
 
-1. La VAPID key pública sigue en config.js.
-2. Cada Staff entra a Cuenta > Activar notificaciones.
-3. El token se guarda en Firestore > push_tokens.
-4. Con la app abierta, la app revisa los cursos y puede avisar alrededor de 10 minutos antes y cuando un curso comienza sin inicio marcado.
-5. El envío manual desde Firebase Cloud Messaging también funciona si querés hacer pruebas.
+Esta versión admite dos niveles:
 
-IMPORTANTE
-----------
-Para notificaciones automáticas confiables con la app completamente cerrada hace falta un proceso de servidor/programado.
-La versión actual elegida por vos evita Blaze, así que NO incluye Cloud Functions programadas.
+A) APP ABIERTA
+- El navegador revisa cada 30 segundos.
+- 10 minutos antes avisa al Staff asignado.
+- Si el curso empieza sin "Marcar inicio", avisa a los otros Staff que tengan la app abierta.
 
-Esto no afecta Google Drive: las fotos/videos usan Google Apps Script y funcionan sin Blaze.
+B) APP CERRADA / SEGUNDO PLANO
+- Google Apps Script revisa Firestore cada minuto.
+- 10 minutos antes manda FCM al Staff asignado.
+- Al llegar la hora, si NO se marcó inicio, manda FCM a TODOS LOS DEMÁS Staff.
+- No requiere Firebase Blaze.
+
+Para activar el nivel B seguí GUIA_ALERTAS_AUTOMATICAS_SIN_BLAZE.txt.
+
+Cada Staff debe entrar a Cuenta > Activar notificaciones al menos una vez.
+El token debe aparecer en Firestore > push_tokens.
 
 Desarrollado por Sergio Quiroga.
