@@ -9,5 +9,5 @@ globalThis.ECT_FIREBASE_CONFIG = {
   appId: "1:696813064363:web:d8bfd336ed78b89c6f27ee",
   measurementId: "G-0KG8Q4S924",
   vapidKey: "BJGYjmpqXHxJNFBliDutGo0z-dxro-1iwAIC4QOm4gVxk_a7gLxy2vbKZ5IOPmR9BnV2kD65WKv8vsL6l7zp8V4",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbyeBafI712sFH6H-h3sYOyqHiTk88I_yQCNg4p-ww1xXzNEUnxjtPhcfj5gBM0XZV1DcA/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbz43ALX6UiwTmxaHdlT1bIfjOJ4jdDDv_tP7Eb5SRiuNi7C9UMbDvcgwFtQiRNwdUPi9A/exec"
 };
