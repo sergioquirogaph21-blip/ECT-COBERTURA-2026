@@ -648,11 +648,11 @@ function setCaptureMode(mode){
     stage.innerHTML=`<label class="gallery-drop"><strong>Grabar video con la cámara</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
     return;
   }
-  stage.innerHTML=`<div class="camera-frame ${mode==='video'?'video-portrait':'photo-landscape'}"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">${mode==='video'?'9:16':'3:4'}</div></div>
+  stage.innerHTML=`<div class="camera-frame ${mode==='video'?'video-portrait':'photo-landscape'}"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">${mode==='video'?'9:16':'4:3'}</div></div>
     <div class="camera-controls">${mode==='photo'
       ? `<button class="shutter photo" data-take-photo aria-label="Sacar foto"><i></i></button>`
       : `<button class="shutter video" data-toggle-record aria-label="Grabar video"><i></i></button><span id="recordTime">00:00</span>`}
-    </div><p class="camera-help">${mode==='photo'?'Foto en 3:4, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
+    </div><p class="camera-help">${mode==='photo'?'Foto en 4:3 horizontal, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
   startCaptureCamera(mode).catch(err=>{stage.innerHTML=`<div class="capture-error">No se pudo abrir la cámara.<br><small>${E(err.message||err)}</small><br><button class="btn secondary" data-media-mode="gallery">Elegir desde galería</button></div>`});
 }
 async function startCaptureCamera(mode){
@@ -667,7 +667,7 @@ async function startCaptureCamera(mode){
     : {
         facingMode:{ideal:'environment'},
         width:{ideal:4096},
-        height:{ideal:4096},
+        height:{ideal:3072},
         aspectRatio:{ideal:3/4}
       };
   captureStream=await navigator.mediaDevices.getUserMedia({
