@@ -119,7 +119,9 @@
 .capture-modes button{border:1px solid #29495c;background:#0a1621;color:#9fb4c1;border-radius:12px;padding:10px 5px;font-size:11px;font-weight:800}
 .capture-modes button.active{background:#163248;color:#fff;border-color:#3c86ad;box-shadow:inset 0 -2px 0 var(--yellow)}
 .capture-stage{margin-top:12px}
-.camera-frame{position:relative;width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:#02070b;border:1px solid #24475b}
+.camera-frame{position:relative;width:100%;border-radius:16px;overflow:hidden;background:#02070b;border:1px solid #24475b;margin-inline:auto}
+.camera-frame.photo-landscape{aspect-ratio:3/4;max-width:360px}
+.camera-frame.video-portrait{aspect-ratio:9/16;max-width:360px}
 .camera-frame video{width:100%;height:100%;object-fit:cover;display:block}
 .camera-guide{position:absolute;right:9px;top:9px;background:#06121acc;color:#fff;border:1px solid #ffffff26;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900}
 .camera-controls{display:flex;align-items:center;justify-content:center;gap:14px;min-height:82px}

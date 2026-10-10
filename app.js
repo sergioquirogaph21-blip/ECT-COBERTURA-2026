@@ -450,7 +450,7 @@ function tutorialShell({title,text,step,total,mode='app',final=false}){
 }
 
 function loginTutorialSteps(){return [
-  {title:'Pedí tu código',text:'La primera vez necesitás un código de acceso de un solo uso. Pedíselo a un administrador del ECT.'},
+  {title:'Pedí tu código',text:'La primera vez necesitás un código de acceso de un solo uso. Pedíselo a un administrador.'},
   {title:'Elegí tu correo y contraseña',text:'Con el código podés crear tu cuenta usando el correo que quieras y una contraseña propia.'},
   {title:'Después entrás normalmente',text:'Tu código se usa una sola vez. Desde el siguiente ingreso usás solamente tu correo y tu contraseña.'}
 ]}
@@ -648,21 +648,30 @@ function setCaptureMode(mode){
     stage.innerHTML=`<label class="gallery-drop"><strong>Grabar video con la cámara</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
     return;
   }
-  stage.innerHTML=`<div class="camera-frame"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">4:3</div></div>
+  stage.innerHTML=`<div class="camera-frame ${mode==='video'?'video-portrait':'photo-landscape'}"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">${mode==='video'?'9:16':'3:4'}</div></div>
     <div class="camera-controls">${mode==='photo'
       ? `<button class="shutter photo" data-take-photo aria-label="Sacar foto"><i></i></button>`
       : `<button class="shutter video" data-toggle-record aria-label="Grabar video"><i></i></button><span id="recordTime">00:00</span>`}
-    </div><p class="camera-help">${mode==='photo'?'La foto se guarda completa, a la mayor resolución que permita la cámara.':'El video intenta usar formato 4:3 según la cámara del dispositivo. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
+    </div><p class="camera-help">${mode==='photo'?'Foto en 3:4, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
   startCaptureCamera(mode).catch(err=>{stage.innerHTML=`<div class="capture-error">No se pudo abrir la cámara.<br><small>${E(err.message||err)}</small><br><button class="btn secondary" data-media-mode="gallery">Elegir desde galería</button></div>`});
 }
 async function startCaptureCamera(mode){
   if(!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara.');
+  const videoConstraints=mode==='video'
+    ? {
+        facingMode:{ideal:'environment'},
+        width:{ideal:1080},
+        height:{ideal:1920},
+        aspectRatio:{ideal:9/16}
+      }
+    : {
+        facingMode:{ideal:'environment'},
+        width:{ideal:4096},
+        height:{ideal:4096},
+        aspectRatio:{ideal:3/4}
+      };
   captureStream=await navigator.mediaDevices.getUserMedia({
-    video:{
-      facingMode:{ideal:'environment'},
-      width:{ideal:4096},
-      height:{ideal:3072}
-    },
+    video:videoConstraints,
     audio:mode==='video'
   });
   const video=document.querySelector('#cameraPreview'); if(!video)return;
