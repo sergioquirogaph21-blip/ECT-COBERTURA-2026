@@ -183,7 +183,7 @@ function accountView(){
 function captureSectionView(){
   return `<section class="capture-page">
     <div class="capture-page-head">
-      <div><span class="kicker">CAPTURA ECT</span><h2>Foto, video o galería</h2><p>Capturá el material y envialo directamente a Drive. En celular, el video usa la cámara nativa para evitar recorte o zoom del navegador.</p></div>
+      <div><span class="kicker">CAPTURA ECT</span><h2>Foto, video o galería</h2><p>Abrí la cámara del celular para sacar fotos o grabar videos; también podés seleccionar archivos existentes.</p></div>
     </div>
     ${appsScriptConfigured()?'':`<div class="setup-warning compact-warning"><b>Falta conectar Google Drive.</b><span>Pegá la URL /exec de Google Apps Script en <code>config.js</code>.</span></div>`}
     <div class="capture-panel card">
@@ -668,20 +668,14 @@ function setCaptureMode(mode){
     stage.innerHTML=`<label class="gallery-drop"><strong>Elegir fotos o videos</strong><span>Podés seleccionar varios archivos desde tu dispositivo.</span><input id="galleryInput" type="file" accept="image/*,video/*" multiple></label>`;
     return;
   }
-  if(mode==='video' && isMobileCaptureDevice()){
-    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video 9:16</strong><span>Se abrirá la cámara nativa del celular para evitar el zoom del navegador. Grabá sosteniendo el teléfono en vertical.</span><b>Abrir cámara</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
+  if(mode==='photo'){
+    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">📷</div><strong>Sacar foto</strong><span>Abre la cámara del celular. Para 4:3, elegí esa proporción en la cámara del teléfono.</span><b>Abrir cámara para foto</b><input id="nativePhotoInput" type="file" accept="image/*" capture="environment"></label>`;
     return;
   }
-  if(mode==='video' && !window.MediaRecorder){
-    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video</strong><span>Tu navegador usará la cámara nativa del dispositivo.</span><b>Abrir cámara</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
+  if(mode==='video'){
+    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video</strong><span>Abre la cámara del celular. Grabá en vertical para 9:16.</span><b>Abrir cámara para video</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
     return;
   }
-  stage.innerHTML=`<div class="camera-frame ${mode==='video'?'video-portrait':'photo-landscape'}"><video id="cameraPreview" playsinline muted autoplay></video><div class="camera-guide">${mode==='video'?'9:16':'4:3'}</div></div>
-    <div class="camera-controls">${mode==='photo'
-      ? `<button class="shutter photo" data-take-photo aria-label="Sacar foto"><i></i></button>`
-      : `<button class="shutter video" data-toggle-record aria-label="Grabar video"><i></i></button><span id="recordTime">00:00</span>`}
-    </div><p class="camera-help">${mode==='photo'?'Foto en 4:3, usando la mayor resolución disponible.':'Video en 9:16 vertical. Máximo 20 segundos y 15 MB por archivo.'}</p>`;
-  startCaptureCamera(mode).catch(err=>{stage.innerHTML=`<div class="capture-error">No se pudo abrir la cámara.<br><small>${E(err.message||err)}</small><br><button class="btn secondary" data-media-mode="gallery">Elegir desde galería</button></div>`});
 }
 async function startCaptureCamera(mode){
   if(!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara.');
@@ -932,7 +926,7 @@ document.addEventListener('click',async e=>{
 
 
 document.addEventListener('change',e=>{
-  if(e.target.id==='galleryInput' || e.target.id==='nativeVideoInput'){
+  if(e.target.id==='galleryInput' || e.target.id==='nativeVideoInput' || e.target.id==='nativePhotoInput'){
     const files=[...e.target.files].filter(f=>f.type.startsWith('image/')||f.type.startsWith('video/')).slice(0,20);
     captureFiles=files;
     renderCaptureFiles();

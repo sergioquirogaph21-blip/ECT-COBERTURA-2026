@@ -1,0 +1,10 @@
+CAMARA NATIVA
+- Foto abre la aplicación de cámara que el navegador/sistema ofrezca (input capture=image). Elegí 4:3 en la cámara del teléfono.
+- Video abre la cámara del teléfono (input capture=video). Sostené el celular vertical para 9:16.
+- En algunos dispositivos iOS/Android el sistema puede mostrar un selector en vez de abrir directamente la cámara; la web no puede forzar otra aplicación.
+
+VELOCIDAD DE SUBIDA
+- La subida actual mediante Google Apps Script transforma cada archivo a Base64 y lo envía mediante un formulario oculto. Eso aumenta los datos transferidos aproximadamente 33% y añade procesamiento en el navegador y Apps Script.
+- La velocidad depende del tamaño, conexión, Google Apps Script y Drive. No hay forma de garantizar una subida mucho más rápida con esta arquitectura y sin cambiar el backend.
+- Para subir más rápido sin perder calidad, elegí archivos más pequeños o usá Wi-Fi rápido. Para videos grandes y subidas directas/resumibles a Drive se requiere otro flujo de autenticación/backend.
+- Se conserva el límite de 15 MB por archivo y las funciones de alertas y nombres por curso.
