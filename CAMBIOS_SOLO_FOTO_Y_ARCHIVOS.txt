@@ -1,0 +1,10 @@
+COBERTURA ECT 2026 - CAPTURA SIMPLIFICADA
+
+Se muestran solo dos opciones: SACAR FOTO y SUBIR ARCHIVOS.
+Sacar foto: abre la cámara que el sistema/navegador permita.
+Subir archivos: permite seleccionar fotos y videos originales, sin recomprimirlos.
+Se eliminó el botón Grabar video, que en algunos móviles capturaba a 360x480.
+Los videos de buena calidad se graban con la app Cámara del celular y se seleccionan desde Subir archivos.
+Se conserva el límite de 15 MB por archivo de Google Apps Script.
+No hace falta cambiar Code.gs, Firebase ni la configuración de Drive.
+Subí los archivos actualizados a GitHub Pages y recargá la web.

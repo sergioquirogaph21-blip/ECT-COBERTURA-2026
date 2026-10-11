@@ -183,14 +183,13 @@ function accountView(){
 function captureSectionView(){
   return `<section class="capture-page">
     <div class="capture-page-head">
-      <div><span class="kicker">CAPTURA ECT</span><h2>Foto, video o galería</h2><p>Abrí la cámara del celular para sacar fotos o grabar videos; también podés seleccionar archivos existentes.</p></div>
+      <div><span class="kicker">CAPTURA ECT</span><h2>Fotos y archivos</h2><p>Sacá una foto con la cámara del celular o subí fotos y videos originales desde tus archivos.</p></div>
     </div>
     ${appsScriptConfigured()?'':`<div class="setup-warning compact-warning"><b>Falta conectar Google Drive.</b><span>Pegá la URL /exec de Google Apps Script en <code>config.js</code>.</span></div>`}
     <div class="capture-panel card">
       <div class="capture-modes">
         <button class="${captureMode==='photo'?'active':''}" data-media-mode="photo">📷 Foto</button>
-        <button class="${captureMode==='video'?'active':''}" data-media-mode="video">🎥 Video</button>
-        <button class="${captureMode==='gallery'?'active':''}" data-media-mode="gallery">🖼️ Galería</button>
+        <button class="${captureMode==='gallery'?'active':''}" data-media-mode="gallery">📁 Subir archivos</button>
       </div>
       <label class="capture-course-label">Curso relacionado <span class="muted-label">(opcional)</span></label>
       <select id="captureCourse">${captureCourseOptions()}</select>
@@ -665,15 +664,11 @@ function setCaptureMode(mode){
   renderCaptureFiles();
   const stage=document.querySelector('#captureStage'); if(!stage)return;
   if(mode==='gallery'){
-    stage.innerHTML=`<label class="gallery-drop"><strong>Elegir fotos o videos</strong><span>Podés seleccionar varios archivos desde tu dispositivo.</span><input id="galleryInput" type="file" accept="image/*,video/*" multiple></label>`;
+    stage.innerHTML=`<label class="gallery-drop"><strong>Subir fotos y videos originales</strong><span>Elegí archivos de la galería o del teléfono. Se conservan sin recomprimir (máximo 15 MB por archivo).</span><input id="galleryInput" type="file" accept="image/*,video/*" multiple></label>`;
     return;
   }
   if(mode==='photo'){
     stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">📷</div><strong>Sacar foto</strong><span>Abre la cámara del celular. Para 4:3, elegí esa proporción en la cámara del teléfono.</span><b>Abrir cámara para foto</b><input id="nativePhotoInput" type="file" accept="image/*" capture="environment"></label>`;
-    return;
-  }
-  if(mode==='video'){
-    stage.innerHTML=`<label class="native-video-card"><div class="native-video-icon">🎥</div><strong>Grabar video</strong><span>Abre la cámara del celular. Grabá en vertical para 9:16.</span><b>Abrir cámara para video</b><input id="nativeVideoInput" type="file" accept="video/*" capture="environment"></label>`;
     return;
   }
 }
@@ -836,7 +831,7 @@ function postToAppsScript(payload,onSubmitted){
   });
 }
 async function uploadCaptureFiles(){
-  if(!captureFiles.length) throw new Error('Primero sacá una foto, grabá un video o elegí archivos.');
+  if(!captureFiles.length) throw new Error('Primero sacá una foto o elegí archivos.');
   if(!appsScriptConfigured()) throw new Error('Falta conectar Google Drive. Pegá la URL /exec de Apps Script en config.js.');
   const btn=document.querySelector('#sendCaptureBtn');if(btn)btn.disabled=true;
   const courseId=document.querySelector('#captureCourse')?.value||'';
@@ -926,7 +921,7 @@ document.addEventListener('click',async e=>{
 
 
 document.addEventListener('change',e=>{
-  if(e.target.id==='galleryInput' || e.target.id==='nativeVideoInput' || e.target.id==='nativePhotoInput'){
+  if(e.target.id==='galleryInput' || e.target.id==='nativePhotoInput'){
     const files=[...e.target.files].filter(f=>f.type.startsWith('image/')||f.type.startsWith('video/')).slice(0,20);
     captureFiles=files;
     renderCaptureFiles();

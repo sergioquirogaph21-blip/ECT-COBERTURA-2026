@@ -115,7 +115,7 @@
 .capture-top>div{flex:1;min-width:0}
 .capture-top h3{font-size:22px;margin:5px 0 5px}
 .capture-x{border:1px solid #29495c;background:#132838;color:#dce9ef;border-radius:50%;width:36px;height:36px;font-size:22px;line-height:1}
-.capture-modes{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
+.capture-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:12px 0}
 .capture-modes button{border:1px solid #29495c;background:#0a1621;color:#9fb4c1;border-radius:12px;padding:10px 5px;font-size:11px;font-weight:800}
 .capture-modes button.active{background:#163248;color:#fff;border-color:#3c86ad;box-shadow:inset 0 -2px 0 var(--yellow)}
 .capture-stage{margin-top:12px}
